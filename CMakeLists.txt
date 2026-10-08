@@ -325,24 +325,32 @@ else()
   set(SUPPRESS_WUNUSED_PARAMETER 0)
 endif()
 
+# Host-compiler flags must not be passed raw to nvcc (CUDA compiler id NVIDIA).
+# Keep them for CXX and for Clang-as-CUDA-compiler builds.
+set(stdexec_host_compile
+    $<NOT:$<COMPILE_LANG_AND_ID:CUDA,NVIDIA>>)
+
 # Enable warnings
 target_compile_options(
   stdexec_executable_flags
   INTERFACE
-    $<$<STREQUAL:${stdexec_compiler_frontend},GNU>:-Wall;$<IF:${SUPPRESS_WUNUSED_PARAMETER},-Wno-unused-parameter,-Werror=unused-parameter>>
-    $<$<STREQUAL:${stdexec_compiler_frontend},AppleClang>:-Wall>
-    $<$<STREQUAL:${stdexec_compiler_frontend},MSVC>:/W4>)
+    $<$<AND:${stdexec_host_compile},$<STREQUAL:${stdexec_compiler_frontend},GNU>>:-Wall;$<IF:${SUPPRESS_WUNUSED_PARAMETER},-Wno-unused-parameter,-Werror=unused-parameter>>
+    $<$<AND:${stdexec_host_compile},$<STREQUAL:${stdexec_compiler_frontend},AppleClang>>:-Wall>
+    $<$<AND:${stdexec_host_compile},$<STREQUAL:${stdexec_compiler_frontend},MSVC>>:/W4>)
 
 # Increase the error limit with NVC++
-target_compile_options(stdexec_executable_flags
-                       INTERFACE $<$<CXX_COMPILER_ID:NVHPC>:-e1000>)
+target_compile_options(
+  stdexec_executable_flags
+  INTERFACE
+    $<$<AND:${stdexec_host_compile},$<CXX_COMPILER_ID:NVHPC>>:-e1000>)
 
 # Silence warnings
 target_compile_options(
   stdexec_executable_flags
-  INTERFACE $<$<CXX_COMPILER_ID:GNU>:-Wno-non-template-friend>
-            $<$<CXX_COMPILER_ID:NVHPC>:--diag_suppress177,550,111,497,554>
-            $<$<CXX_COMPILER_ID:MSVC>:/wd4100
+  INTERFACE
+    $<$<AND:${stdexec_host_compile},$<CXX_COMPILER_ID:GNU>>:-Wno-non-template-friend>
+    $<$<AND:${stdexec_host_compile},$<CXX_COMPILER_ID:NVHPC>>:--diag_suppress177,550,111,497,554>
+    $<$<AND:${stdexec_host_compile},$<CXX_COMPILER_ID:MSVC>>:/wd4100
             /wd4101
             /wd4127
             /wd4324
@@ -353,11 +361,11 @@ target_compile_options(
 target_compile_options(
   stdexec_executable_flags
   INTERFACE
-    $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:
+    $<$<AND:${stdexec_host_compile},$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>>:
     $<$<STREQUAL:${CMAKE_CXX_COMPILER_FRONTEND_VARIANT},MSVC>:/clang:>-ferror-limit=0
     $<$<STREQUAL:${CMAKE_CXX_COMPILER_FRONTEND_VARIANT},MSVC>:/clang:>-fmacro-backtrace-limit=0
     $<$<STREQUAL:${CMAKE_CXX_COMPILER_FRONTEND_VARIANT},MSVC>:/clang:>-ftemplate-backtrace-limit=0>
-    $<$<AND:$<CXX_COMPILER_ID:NVHPC>,$<VERSION_GREATER:$<CXX_COMPILER_VERSION>,23.3.0>>:
+    $<$<AND:${stdexec_host_compile},$<CXX_COMPILER_ID:NVHPC>,$<VERSION_GREATER:$<CXX_COMPILER_VERSION>,23.3.0>>:
     -ftemplate-backtrace-limit=0>)
 
 # # Always enable colored output target_compile_options(stdexec_executable_flags
